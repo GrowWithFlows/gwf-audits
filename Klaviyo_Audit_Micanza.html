@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klaviyo Account Audit — Micanza / ETQ Amsterdam</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black: #0e0e0e; --white: #fafaf8; --cream: #f4f1eb;
+    --accent: #4bc0b5; --accent-dark: #3a9990; --muted: #7a7670; --border: #e2ddd4;
+    --excellent: #2d6a4f; --excellent-bg: #d8f3dc;
+    --good: #1a5276;     --good-bg: #d6eaf8;
+    --fair: #7d4e00;     --fair-bg: #fdebd0;
+    --poor: #922b21;     --poor-bg: #fadbd8;
+  }
+  html { font-size: 16px; }
+  body { background: var(--cream); color: var(--black); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.65; }
+
+  /* ── PASSWORD SCREEN ── */
+  #lockScreen {
+    display: none;
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--black);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 1.5rem;
+  }
+  #lockScreen img { height: 28px; opacity: .7; }
+  #lockScreen h2 { font-family: 'DM Serif Display', serif; font-size: 1.5rem; font-weight: 400; color: var(--white); }
+  #lockScreen p  { font-size: 13px; color: rgba(250,250,248,.4); }
+  #pwInput {
+    font-size: 14px; padding: 10px 16px; border-radius: 8px;
+    border: 1px solid rgba(75,192,181,.4); background: rgba(255,255,255,.05);
+    color: var(--white); width: 240px; text-align: center; letter-spacing: .1em;
+    outline: none;
+  }
+  #pwInput:focus { border-color: var(--accent); }
+  #pwError { font-size: 12px; color: var(--poor-bg); min-height: 16px; }
+  #pwBtn {
+    font-size: 13px; font-weight: 500; padding: 9px 28px;
+    border-radius: 20px; border: none; background: var(--accent);
+    color: var(--black); cursor: pointer; letter-spacing: .04em;
+  }
+  #pwBtn:hover { background: #5dcec3; }
+
+  /* ── EDITOR TOOLBAR ── */
+  #editorBar {
+    display: none;
+    position: sticky; top: 0; z-index: 100;
+    background: var(--black); color: var(--white);
+    padding: .65rem 2rem; align-items: center;
+    justify-content: space-between; gap: 1rem;
+    border-bottom: 1px solid rgba(75,192,181,.2);
+  }
+  #editorBar .bar-left { display: flex; align-items: center; gap: .75rem; }
+  #editorBar .bar-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  #editorBar .bar-hint  { font-size: 12px; color: rgba(250,250,248,.35); }
+  .bar-btn {
+    font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: 20px;
+    border: 1px solid rgba(75,192,181,.4); background: transparent;
+    color: var(--accent); cursor: pointer; transition: all .15s; letter-spacing: .03em;
+  }
+  .bar-btn:hover { background: rgba(75,192,181,.12); }
+  .bar-btn.primary { background: var(--accent); color: var(--black); border-color: var(--accent); }
+  .bar-btn.primary:hover { background: #5dcec3; }
+  .bar-btn.danger { border-color: rgba(250,100,100,.3); color: #f99; }
+  .bar-btn.danger:hover { background: rgba(250,100,100,.1); }
+
+  /* ── EDITABLE HIGHLIGHTS ── */
+  body.editor-mode [contenteditable="true"] {
+    outline: none;
+    border-bottom: 1px dashed rgba(75,192,181,.5);
+    cursor: text;
+    transition: border-color .15s;
+  }
+  body.editor-mode [contenteditable="true"]:hover  { border-bottom-color: var(--accent); }
+  body.editor-mode [contenteditable="true"]:focus  { border-bottom-color: var(--accent); background: rgba(75,192,181,.04); border-radius: 2px; }
+
+  /* ── INSIGHT EDIT CONTROLS ── */
+  .insight-add-btn {
+    display: none;
+    font-size: 11px; margin-top: .6rem; padding: 3px 10px;
+    border-radius: 12px; border: 1px dashed rgba(0,0,0,.2);
+    background: transparent; cursor: pointer; color: inherit; opacity: .6;
+  }
+  .insight-add-btn:hover { opacity: 1; }
+  body.editor-mode .insight-add-btn { display: inline-block; }
+  .insight-del {
+    display: none; background: none; border: none;
+    cursor: pointer; font-size: 13px; opacity: .4;
+    margin-left: 4px; vertical-align: middle; transition: opacity .15s;
+  }
+  .insight-del:hover { opacity: 1; }
+  body.editor-mode .insight-del { display: inline; }
+
+  /* ── REC EDIT CONTROLS ── */
+  .rec-delete {
+    display: none; background: none; border: none; color: rgba(250,250,248,.25);
+    cursor: pointer; font-size: 16px; padding: 0 2px; flex-shrink: 0;
+    margin-top: .1rem; transition: color .15s;
+  }
+  .rec-delete:hover { color: var(--poor-bg); }
+  body.editor-mode .rec-delete { display: block; }
+  #addRecBtn { display: none; }
+  body.editor-mode #addRecBtn { display: inline-block; }
+
+  /* ── HEADER ── */
+  .header { background: var(--black); color: var(--white); padding: 2.5rem 4rem 3rem; position: relative; overflow: hidden; }
+  .header::before { content:''; position:absolute; top:-60px; right:-60px; width:320px; height:320px; border:1px solid rgba(75,192,181,.15); border-radius:50%; pointer-events:none; }
+  .header::after  { content:''; position:absolute; top:20px; right:20px; width:160px; height:160px; border:1px solid rgba(75,192,181,.1); border-radius:50%; pointer-events:none; }
+  .header-logo { margin-bottom: 2rem; }
+  .header-logo img { height: 32px; width: auto; }
+  .header-label { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin-bottom:.6rem; font-weight:400; }
+  .header h1 { font-family:'DM Serif Display',serif; font-size:clamp(1.8rem,3.5vw,2.8rem); font-weight:400; line-height:1.15; margin-bottom:.4rem; }
+  .header-sub { color:rgba(250,250,248,.45); font-size:14px; }
+  .header-meta { margin-top:2.5rem; display:flex; gap:2.5rem; flex-wrap:wrap; }
+  .meta-item .meta-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:rgba(250,250,248,.35); margin-bottom:2px; }
+  .meta-item .meta-value { font-size:14px; color:var(--white); font-weight:400; }
+  .meta-item .meta-value.accent { color:var(--accent); font-size:18px; font-family:'DM Serif Display',serif; }
+
+  /* ── MAIN ── */
+  .main { max-width: 980px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+
+  .overview-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:3rem; }
+  .ov-card { background:var(--white); padding:1.4rem 1.25rem; transition:background .15s; }
+  .ov-card:hover { background:#f9f6f0; }
+  .ov-card .ov-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:.4rem; }
+  .ov-card .ov-value { font-family:'DM Serif Display',serif; font-size:1.65rem; line-height:1.1; color:var(--black); margin-bottom:.2rem; }
+  .ov-card .ov-note { font-size:11px; color:var(--muted); }
+  .ov-card.highlight .ov-value { color:var(--accent-dark); }
+  .ov-card.warn .ov-value { color:var(--poor); }
+
+  .section { margin-bottom: 2.5rem; }
+  .section-title { display:flex; align-items:center; gap:10px; margin-bottom:1rem; }
+  .section-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+  .section-title h2 { font-family:'DM Serif Display',serif; font-size:1.2rem; font-weight:400; }
+
+  .metrics-card { background:var(--white); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .metrics-row { display:grid; grid-template-columns:1fr 110px 120px; border-bottom:1px solid var(--border); align-items:center; }
+  .metrics-row:last-child { border-bottom:none; }
+  .metrics-row.header-row { background:#f7f4ee; }
+  .metrics-row.header-row .cell { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:500; padding:.6rem 1.2rem; }
+  .cell { padding:.85rem 1.2rem; font-size:14px; }
+  .cell-value { font-weight:500; font-size:15px; }
+
+  .badge { display:inline-block; font-size:11px; font-weight:500; letter-spacing:.03em; padding:3px 10px; border-radius:20px; }
+  .badge-excellent { background:var(--excellent-bg); color:var(--excellent); }
+  .badge-good      { background:var(--good-bg);      color:var(--good); }
+  .badge-fair      { background:var(--fair-bg);      color:var(--fair); }
+  .badge-poor      { background:var(--poor-bg);      color:var(--poor); }
+  .badge-live      { background:#d8f3dc; color:#2d6a4f; }
+
+  .insights { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:3rem; }
+  .insight-box { border-radius:10px; padding:1.2rem 1.4rem; border:1px solid; }
+  .insight-box.positive { background:var(--excellent-bg); border-color:#a8d5b5; }
+  .insight-box.negative { background:var(--poor-bg); border-color:#e8a9a3; }
+  .insight-box .insight-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:500; margin-bottom:.5rem; }
+  .insight-box.positive .insight-label { color:var(--excellent); }
+  .insight-box.negative .insight-label { color:var(--poor); }
+  .insight-box ul { list-style:none; }
+  .insight-box ul li { font-size:13px; padding:3px 0; display:flex; align-items:flex-start; gap:4px; }
+  .insight-box ul li::before { content:'→ '; opacity:.6; flex-shrink:0; }
+  .insight-box.positive ul li { color:#1e4d35; }
+  .insight-box.negative ul li { color:#6b2020; }
+
+  .table-wrap { background:var(--white); border:1px solid var(--border); border-radius:12px; overflow:auto; }
+  table.dt { width:100%; border-collapse:collapse; font-size:13px; min-width:680px; }
+  table.dt thead tr { background:#f7f4ee; }
+  table.dt thead th { text-align:left; padding:.6rem 1rem; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:500; white-space:nowrap; }
+  table.dt thead th.r { text-align:right; }
+  table.dt tbody tr { border-top:1px solid var(--border); transition:background .1s; }
+  table.dt tbody tr:hover { background:#faf8f4; }
+  table.dt tbody tr.warn { background:#fff8f7; }
+  table.dt tbody tr.warn td { color:#6b2020; }
+  table.dt tbody tr.top { background:#f4fbf6; }
+  table.dt td { padding:.75rem 1rem; vertical-align:middle; }
+  table.dt td.r { text-align:right; font-variant-numeric:tabular-nums; }
+  table.dt td.c { text-align:center; }
+  table.dt td.muted { color:var(--muted); font-size:12px; }
+
+  .action-card { background:var(--black); color:var(--white); border-radius:12px; padding:2rem 2.5rem; margin-bottom:3rem; }
+  .action-card .action-label { font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--accent); margin-bottom:.75rem; }
+  .action-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem; }
+  .action-toolbar h2 { font-family:'DM Serif Display',serif; font-size:1.15rem; font-weight:400; }
+  .rec-list { list-style:none; display:flex; flex-direction:column; gap:.6rem; }
+  .rec-item { display:flex; align-items:flex-start; gap:.75rem; }
+  .rec-arrow { color:var(--accent); flex-shrink:0; margin-top:.15rem; }
+  .rec-text { font-size:13.5px; line-height:1.75; color:rgba(250,250,248,.65); flex:1; }
+  .rec-text strong { color:rgba(250,250,248,.9); font-weight:500; }
+
+  .divider { border:none; border-top:1px solid var(--border); margin:3rem 0; }
+  .hint { font-size:12px; color:var(--muted); margin-top:.6rem; padding:0 .25rem; }
+  .footer { text-align:center; padding:2rem; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); border-top:1px solid var(--border); }
+
+  @media print {
+    #editorBar, #lockScreen, .rec-delete, .insight-del, .insight-add-btn, .bar-btn { display:none !important; }
+  }
+  @media(max-width:700px){
+    .header{padding:2rem 1.5rem;}
+    .main{padding:2rem 1rem 4rem;}
+    .insights{grid-template-columns:1fr;}
+    .metrics-row{grid-template-columns:1fr 90px 100px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     PASSWORD SCREEN (shown to clients)
+══════════════════════════════════════════ -->
+<div id="lockScreen">
+  <img src="https://cdn.shopify.com/s/files/1/0968/6876/1944/files/GrowWithFlows_Logo_dark.png?v=1779177188" alt="GrowWithFlows" />
+  <h2>Account Audit Report</h2>
+  <p>Enter your access code to view this report.</p>
+  <input type="password" id="pwInput" placeholder="••••••••" autocomplete="off" />
+  <p id="pwError"></p>
+  <button id="pwBtn" onclick="checkPassword()">View Report</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     EDITOR TOOLBAR (shown in editor mode only)
+══════════════════════════════════════════ -->
+<div id="editorBar">
+  <div class="bar-left">
+    <span class="bar-label">Editor Mode</span>
+    <span class="bar-hint">Click any text to edit · Changes are saved in this file</span>
+  </div>
+  <div style="display:flex;gap:.5rem;">
+    <button class="bar-btn danger" onclick="exitEditorMode()">Exit Editor</button>
+    <button class="bar-btn primary" onclick="exportFile()">⬇ Save as File</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     REPORT CONTENT
+══════════════════════════════════════════ -->
+<div id="reportContent" style="display:none;">
+
+<header class="header">
+  <div class="header-logo">
+    <img src="https://cdn.shopify.com/s/files/1/0968/6876/1944/files/GrowWithFlows_Logo_dark.png?v=1779177188" alt="GrowWithFlows" />
+  </div>
+  <div class="header-label">Klaviyo Account Audit</div>
+  <h1>Account Health &amp;<br>Deliverability</h1>
+  <div class="header-sub">Micanza B.V. / ETQ Amsterdam — Q1 2026 &nbsp;(Jan 1 – Mar 31, 2026)</div>
+  <div class="header-meta">
+    <div class="meta-item"><div class="meta-label">Total Revenue</div><div class="meta-value">€3,127,851.68</div></div>
+    <div class="meta-item"><div class="meta-label">Klaviyo Revenue</div><div class="meta-value">€1,102,217.08</div></div>
+    <div class="meta-item"><div class="meta-label">Klaviyo Share</div><div class="meta-value accent">35.24%</div></div>
+    <div class="meta-item"><div class="meta-label">Active Profiles</div><div class="meta-value">109,652</div></div>
+    <div class="meta-item"><div class="meta-label">Campaigns / Flows</div><div class="meta-value">66.10% / 33.90%</div></div>
+    <div class="meta-item"><div class="meta-label">Sign-up Form Rate</div><div class="meta-value">4.22%</div></div>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="overview-grid">
+    <div class="ov-card warn"><div class="ov-label">Klaviyo Share</div><div class="ov-value">35.24%</div><div class="ov-note">Above target (20–30%) ⚠</div></div>
+    <div class="ov-card"><div class="ov-label">Active Profiles</div><div class="ov-value">109,652</div><div class="ov-note">Subscriber base</div></div>
+    <div class="ov-card highlight"><div class="ov-label">Campaign Share</div><div class="ov-value">66.10%</div><div class="ov-note">of Klaviyo revenue</div></div>
+    <div class="ov-card"><div class="ov-label">Flow Share</div><div class="ov-value">33.90%</div><div class="ov-note">of Klaviyo revenue</div></div>
+    <div class="ov-card"><div class="ov-label">Sign-up Form Rate</div><div class="ov-value">4.22%</div><div class="ov-note"><span class="badge badge-excellent" style="font-size:10px;">Excellent</span></div></div>
+    <div class="ov-card"><div class="ov-label">Campaigns Q1</div><div class="ov-value">45</div><div class="ov-note">campaigns sent</div></div>
+  </div>
+
+  <!-- INSIGHTS — fully editable -->
+  <div class="insights">
+    <div class="insight-box positive">
+      <div class="insight-label">Strengths</div>
+      <ul id="strengthsList">
+        <li><span contenteditable="false">Abandoned Cart #1: €190,344 revenue, 11.5% conversion rate</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Back In Stock Email #1: 23.1% click rate, 7% conversion rate</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Price Drop Flow: 15.1% click rate, strong performance</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Sign-up form rate 4.22% — Excellent</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Flash sales &amp; text-only emails are top campaign performers</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Spam rate for campaigns &amp; flows: Good</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+      </ul>
+      <button class="insight-add-btn" onclick="addInsight('strengthsList', this)">+ Add point</button>
+    </div>
+    <div class="insight-box negative">
+      <div class="insight-label">Areas for Improvement</div>
+      <ul id="weaknessesList">
+        <li><span contenteditable="false">Campaign open rate: 41.4% → rated Poor</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Sunset Flow: 15.9% open rate — nearly inactive</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Multiple flows with unsubscribe rate &gt;1% (ETQ Boxer Shorts, Customer Thank You)</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Klaviyo share at 35.24% — above the 30% benchmark</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Flow share of revenue only 33.9% — untapped potential</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+        <li><span contenteditable="false">Several draft flows with no data — review required</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button></li>
+      </ul>
+      <button class="insight-add-btn" onclick="addInsight('weaknessesList', this)">+ Add point</button>
+    </div>
+  </div>
+
+  <!-- EMAIL CAMPAIGNS METRICS -->
+  <div class="section">
+    <div class="section-title"><div class="section-dot"></div><h2>Email Campaigns — Overall Performance</h2></div>
+    <div class="metrics-card">
+      <div class="metrics-row header-row"><div class="cell">Metric</div><div class="cell">Value</div><div class="cell">Rating</div></div>
+      <div class="metrics-row"><div class="cell">Open Rate</div><div class="cell cell-value">41.40%</div><div class="cell"><span class="badge badge-poor">Poor</span></div></div>
+      <div class="metrics-row"><div class="cell">Click Rate</div><div class="cell cell-value">1.18%</div><div class="cell"><span class="badge badge-fair">Fair</span></div></div>
+      <div class="metrics-row"><div class="cell">Conversion Rate</div><div class="cell cell-value">0.096%</div><div class="cell"><span class="badge badge-good">Good</span></div></div>
+      <div class="metrics-row"><div class="cell">Bounce Rate</div><div class="cell cell-value">0.54%</div><div class="cell"><span class="badge badge-fair">Fair</span></div></div>
+      <div class="metrics-row"><div class="cell">Spam Rate</div><div class="cell cell-value">0.006%</div><div class="cell"><span class="badge badge-good">Good</span></div></div>
+      <div class="metrics-row"><div class="cell">Unsubscribe Rate</div><div class="cell cell-value">0.189%</div><div class="cell"><span class="badge badge-good">Good</span></div></div>
+    </div>
+  </div>
+
+  <!-- FLOWS METRICS -->
+  <div class="section">
+    <div class="section-title"><div class="section-dot"></div><h2>Flows — Overall Performance</h2></div>
+    <div class="metrics-card">
+      <div class="metrics-row header-row"><div class="cell">Metric</div><div class="cell">Value</div><div class="cell">Rating</div></div>
+      <div class="metrics-row"><div class="cell">Open Rate</div><div class="cell cell-value">56.90%</div><div class="cell"><span class="badge badge-good">Good</span></div></div>
+      <div class="metrics-row"><div class="cell">Click Rate</div><div class="cell cell-value">5.34%</div><div class="cell"><span class="badge badge-fair">Fair</span></div></div>
+      <div class="metrics-row"><div class="cell">Conversion Rate</div><div class="cell cell-value">1.97%</div><div class="cell"><span class="badge badge-good">Good</span></div></div>
+      <div class="metrics-row"><div class="cell">Bounce Rate</div><div class="cell cell-value">0.42%</div><div class="cell"><span class="badge badge-excellent">Excellent</span></div></div>
+      <div class="metrics-row"><div class="cell">Spam Rate</div><div class="cell cell-value">0.014%</div><div class="cell"><span class="badge badge-good">Good</span></div></div>
+      <div class="metrics-row"><div class="cell">Unsubscribe Rate</div><div class="cell cell-value">0.90%</div><div class="cell"><span class="badge badge-fair">Fair</span></div></div>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- FLOWS DETAIL -->
+  <div class="section">
+    <div class="section-title"><div class="section-dot"></div><h2>Flows — Individual Analysis (Q1 2026)</h2></div>
+
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:.4rem;font-size:13px;color:var(--muted);cursor:pointer;">
+        <input type="checkbox" id="filterMin300" checked onchange="renderFlows()" style="accent-color:var(--accent-dark);" />
+        Only show flows with &ge; 300 delivered
+      </label>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:13px;color:var(--muted);">
+        <span>Sort by:</span>
+        <select id="flowSort" onchange="renderFlows()" style="font-size:13px;padding:3px 8px;border:0.5px solid var(--border);border-radius:6px;background:var(--white);color:var(--black);">
+          <option value="default">Default</option>
+          <option value="delivered_desc">Delivered (highest first)</option>
+          <option value="delivered_asc">Delivered (lowest first)</option>
+          <option value="open_asc">Open Rate (lowest first)</option>
+          <option value="open_desc">Open Rate (highest first)</option>
+          <option value="click_asc">Click Rate (lowest first)</option>
+          <option value="click_desc">Click Rate (highest first)</option>
+          <option value="conv_asc">Conv. Rate (lowest first)</option>
+          <option value="conv_desc">Conv. Rate (highest first)</option>
+          <option value="revenue_desc">Revenue (highest first)</option>
+          <option value="revenue_asc">Revenue (lowest first)</option>
+          <option value="unsub_desc">Unsub Rate (highest first)</option>
+          <option value="unsub_asc">Unsub Rate (lowest first)</option>
+        </select>
+      </div>
+      <span id="flowCount" style="font-size:12px;color:var(--muted);margin-left:auto;"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="dt">
+        <thead><tr>
+          <th>Flow</th><th>Status</th>
+          <th class="r">Delivered</th><th class="r">Open Rate</th><th class="r">Click Rate</th>
+          <th class="r">Conv. Rate</th><th class="r">Revenue</th><th class="r">Unsub.</th><th></th>
+        </tr></thead>
+        <tbody id="flowsTbody"></tbody>
+      </table>
+    </div>
+    <p class="hint">⭐ Top performer &nbsp;·&nbsp; &#9888;&#65039; Needs attention &nbsp;·&nbsp; Draft flows with no data not listed</p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- CAMPAIGNS -->
+  <div class="section">
+    <div class="section-title"><div class="section-dot"></div><h2>Campaigns — Top &amp; Worst Performers (Q1 2026, 45 campaigns)</h2></div>
+    <div class="table-wrap">
+      <table class="dt">
+        <thead><tr>
+          <th>Campaign</th><th>Day</th>
+          <th class="r">Recipients</th><th class="r">Open Rate</th><th class="r">Click Rate</th>
+          <th class="r">Conv.</th><th class="r">Revenue</th><th></th>
+        </tr></thead>
+        <tbody>
+          <tr class="top"><td><strong>Feb 15 — TEXT Only 70% Final Chapter</strong></td><td>Sunday</td><td class="r">104,638</td><td class="r">45.4%</td><td class="r"><strong>3.43%</strong></td><td class="r">0.37%</td><td class="r"><strong>€48,084</strong></td><td class="c">⭐</td></tr>
+          <tr class="top"><td><strong>Jan 23 — Flash Sale 50–70%</strong></td><td>Friday</td><td class="r">104,397</td><td class="r">43.2%</td><td class="r">2.75%</td><td class="r">0.16%</td><td class="r"><strong>€29,409</strong></td><td class="c">⭐</td></tr>
+          <tr class="top"><td><strong>Mar 26 — Flash Sale March 50–70%</strong></td><td>Thursday</td><td class="r">105,390</td><td class="r">41.6%</td><td class="r">3.11%</td><td class="r">0.16%</td><td class="r"><strong>€28,203</strong></td><td class="c">⭐</td></tr>
+          <tr class="top"><td><strong>Jan 8 — Winter Sale Launch</strong></td><td>Thursday</td><td class="r">103,086</td><td class="r">44.2%</td><td class="r">2.69%</td><td class="r">0.17%</td><td class="r"><strong>€27,623</strong></td><td class="c">⭐</td></tr>
+          <tr class="top"><td><strong>Mar 29 — Flash Sale Last Hours</strong></td><td>Sunday</td><td class="r">105,098</td><td class="r">40.3%</td><td class="r">1.83%</td><td class="r">0.15%</td><td class="r"><strong>€27,414</strong></td><td class="c">⭐</td></tr>
+          <tr style="background:#f7f4ee;"><td colspan="8" style="padding:.5rem 1rem;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);">Weakest Performers</td></tr>
+          <tr class="warn"><td>Jan 25 — Shades Part 3</td><td>Tuesday</td><td class="r">104,406</td><td class="r">41.8%</td><td class="r">0.44%</td><td class="r">0.06%</td><td class="r">€7,936</td><td class="c">⚠️</td></tr>
+          <tr class="warn"><td>Jan 22 — Shades Nubuck</td><td>Thursday</td><td class="r">104,432</td><td class="r">41.9%</td><td class="r">0.30%</td><td class="r">0.05%</td><td class="r">€6,753</td><td class="c">⚠️</td></tr>
+          <tr class="warn"><td>Jan 20 — Shades Suede Chocolate</td><td>Tuesday</td><td class="r">104,685</td><td class="r">42.7%</td><td class="r">0.48%</td><td class="r">0.05%</td><td class="r">€6,685</td><td class="c">⚠️</td></tr>
+          <tr class="warn"><td>Jan 15 — Topwear</td><td>Thursday</td><td class="r">104,989</td><td class="r">42.2%</td><td class="r">0.38%</td><td class="r">0.03%</td><td class="r">€5,402</td><td class="c">⚠️</td></tr>
+          <tr class="warn"><td>Mar 10 — Spring Sale Follow Up</td><td>Tuesday</td><td class="r">104,937</td><td class="r"><strong>34.7%</strong></td><td class="r">0.84%</td><td class="r">0.06%</td><td class="r">€12,559</td><td class="c">⚠️</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">⭐ Top 5 by revenue &nbsp;·&nbsp; ⚠️ Weakest performers &nbsp;·&nbsp; Total campaign revenue Q1: €726,584</p>
+  </div>
+
+  <!-- ACTION PLAN -->
+  <div class="action-card">
+    <div class="action-label">Action Plan</div>
+    <div class="action-toolbar">
+      <h2>Recommendations &amp; Next Steps</h2>
+      <button id="addRecBtn" class="bar-btn" style="font-size:11px;padding:4px 12px;" onclick="addRec()">+ Add</button>
+    </div>
+    <ul class="rec-list" id="recList">
+      <li class="rec-item"><span class="rec-arrow">→</span><span class="rec-text" contenteditable="false"><strong>Improve campaign open rate (41.4% → Poor):</strong> Test subject lines and sending times. The Spring Sale Follow-Up (34.7% OR) already shows list fatigue from high send frequency.</span><button class="rec-delete" onclick="removeRec(this)">×</button></li>
+      <li class="rec-item"><span class="rec-arrow">→</span><span class="rec-text" contenteditable="false"><strong>Increase flow share of revenue (currently 33.9%):</strong> Abandoned Cart is performing excellently, but Browse Abandonment and Post-Purchase flows have room to grow. Activate missing flows (Added to Cart, First-to-Second Purchase).</span><button class="rec-delete" onclick="removeRec(this)">×</button></li>
+      <li class="rec-item"><span class="rec-arrow">→</span><span class="rec-text" contenteditable="false"><strong>Fix high unsubscribe rates in flows:</strong> ETQ Boxer Shorts (1.8%), Customer Thank You (1.6%), Shopify Footer #2 (1.6%) — review content and timing of these flows.</span><button class="rec-delete" onclick="removeRec(this)">×</button></li>
+      <li class="rec-item"><span class="rec-arrow">→</span><span class="rec-text" contenteditable="false"><strong>Deactivate or rebuild the Sunset Flow:</strong> 15.9% open rate and €0 revenue from 69 delivered emails — this flow is effectively dead and is harming sender reputation.</span><button class="rec-delete" onclick="removeRec(this)">×</button></li>
+      <li class="rec-item"><span class="rec-arrow">→</span><span class="rec-text" contenteditable="false"><strong>Segment product-focus campaigns:</strong> The Shades campaigns achieve very low click rates (0.30–0.48%) despite 100k+ recipients — targeted segmentation by product interest would improve both relevance and revenue.</span><button class="rec-delete" onclick="removeRec(this)">×</button></li>
+      <li class="rec-item"><span class="rec-arrow">→</span><span class="rec-text" contenteditable="false"><strong>Monitor Klaviyo share:</strong> At 35.24%, the account is above the 30% benchmark — not a critical issue, but worth keeping an eye on.</span><button class="rec-delete" onclick="removeRec(this)">×</button></li>
+    </ul>
+  </div>
+
+</main>
+
+<footer class="footer">
+  Klaviyo Account Audit &nbsp;·&nbsp; Micanza B.V. / ETQ Amsterdam &nbsp;·&nbsp; GrowWithFlows &nbsp;·&nbsp; Confidential
+</footer>
+
+</div><!-- end #reportContent -->
+
+<script>
+/* ══════════════════════════════════════════
+   ★  SET YOUR PASSWORD HERE  ★
+   This is the password your clients enter.
+   Change "yourpassword" to whatever you like.
+══════════════════════════════════════════ */
+const CLIENT_PASSWORD = 'yourpassword';
+
+/* ══════════════════════════════════════════
+   ★  SET YOUR EDITOR SECRET HERE  ★
+   Add ?edit=YOURSECRET to the URL to open
+   the file in editor mode directly.
+   Example: audit.html?edit=gwf2026
+══════════════════════════════════════════ */
+const EDITOR_SECRET = 'gwf2026';
+
+/* ── INIT ── */
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get('edit') === EDITOR_SECRET) {
+    // Open directly in editor mode (your working copy)
+    showReport();
+    enterEditorMode();
+  } else {
+    // Show password screen to client
+    document.getElementById('lockScreen').style.display = 'flex';
+  }
+
+  // Allow Enter key on password field
+  document.getElementById('pwInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPassword();
+  });
+});
+
+/* ── PASSWORD CHECK ── */
+function checkPassword() {
+  const val = document.getElementById('pwInput').value;
+  if (val === CLIENT_PASSWORD) {
+    document.getElementById('lockScreen').style.display = 'none';
+    showReport();
+  } else {
+    document.getElementById('pwError').textContent = 'Incorrect password. Please try again.';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+  }
+}
+
+function showReport() {
+  document.getElementById('reportContent').style.display = 'block';
+}
+
+/* ── EXPORT ── */
+function exportFile() {
+  // Disable all editing before export
+  document.querySelectorAll('[contenteditable]').forEach(el => el.contentEditable = 'false');
+
+  // Get the full HTML, re-enable contenteditable=false so client version is clean
+  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+  // Restore editing in case user continues
+  if (document.body.classList.contains('editor-mode')) {
+    document.querySelectorAll('.rec-text, #strengthsList span, #weaknessesList span').forEach(el => {
+      el.contentEditable = 'true';
+    });
+  }
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = document.title.replace(/[^a-z0-9]/gi, '_') + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ── EDITOR MODE ── */
+function enterEditorMode() {
+  document.body.classList.add('editor-mode');
+  document.getElementById('editorBar').style.display = 'flex';
+  // Enable contenteditable on all editable spans
+  document.querySelectorAll('.rec-text, #strengthsList span, #weaknessesList span').forEach(el => {
+    el.contentEditable = 'true';
+  });
+}
+
+function exitEditorMode() {
+  document.body.classList.remove('editor-mode');
+  document.getElementById('editorBar').style.display = 'none';
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    el.contentEditable = 'false';
+  });
+}
+
+/* ── INSIGHT HELPERS ── */
+function delInsight(btn) {
+  btn.closest('li').remove();
+}
+
+function addInsight(listId, btn) {
+  const list = document.getElementById(listId);
+  const li = document.createElement('li');
+  li.innerHTML = `<span contenteditable="true">Type your point here…</span><button class="insight-del" onclick="delInsight(this)" title="Remove">×</button>`;
+  list.appendChild(li);
+  const span = li.querySelector('span');
+  span.focus();
+  const range = document.createRange();
+  range.selectNodeContents(span);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+}
+
+/* ── RECOMMENDATION HELPERS ── */
+function removeRec(btn) {
+  btn.closest('.rec-item').remove();
+}
+
+function addRec() {
+  const list = document.getElementById('recList');
+  const li = document.createElement('li');
+  li.className = 'rec-item';
+  li.innerHTML = `<span class="rec-arrow">→</span><span class="rec-text" contenteditable="true">Type your recommendation here…</span><button class="rec-delete" onclick="removeRec(this)" style="display:block;">×</button>`;
+  list.appendChild(li);
+  const span = li.querySelector('.rec-text');
+  span.focus();
+  const range = document.createRange();
+  range.selectNodeContents(span);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+}
+
+/* ── FLOWS DATA & RENDER ── */
+const FLOWS_DATA = [
+  { name: 'Abandoned Cart — Aangepast', sub: 'NEW: no order protection', delivered: 7862, open: 66.8, click: 6.3, conv: 11.6, revenue: 190344, unsub: 0.42, flag: '⭐' },
+  { name: 'Abandoned Cart — Reminder #1', sub: 'New template', delivered: 179, open: 53.1, click: 8.9, conv: 4.5, revenue: 1503, unsub: 0.56, flag: '—' },
+  { name: 'Abandoned Browse — Mail #1', sub: '', delivered: 3163, open: 58.8, click: 5.8, conv: 0.82, revenue: 4403, unsub: 0.35, flag: '—' },
+  { name: 'Abandoned Browse — Copy #1', sub: '', delivered: 6678, open: 63.0, click: 6.1, conv: 0.36, revenue: 4174, unsub: 0.24, flag: '—' },
+  { name: 'Back In Stock — Email #1', sub: '', delivered: 2520, open: 50.2, click: 23.1, conv: 7.0, revenue: 29961, unsub: 0.48, flag: '⭐' },
+  { name: 'Back In Stock — Reminder', sub: '', delivered: 1762, open: 51.0, click: 19.7, conv: 1.8, revenue: 4967, unsub: 0.17, flag: '—' },
+  { name: 'Court Light Flow — Email #1', sub: '', delivered: 1515, open: 52.7, click: 4.0, conv: 0.66, revenue: 1129, unsub: 0.73, flag: '⚠️' },
+  { name: 'Customer Thank You — New #1', sub: '', delivered: 6793, open: 54.6, click: 1.4, conv: 0.65, revenue: 4111, unsub: 1.59, flag: '⚠️' },
+  { name: 'ETQ Boxer Shorts — Email #1', sub: '', delivered: 15343, open: 47.8, click: 2.0, conv: 0.75, revenue: 13927, unsub: 1.80, flag: '⚠️' },
+  { name: 'List Cleaning Flow — Email #1', sub: '', delivered: 12393, open: 56.5, click: 4.5, conv: 0.79, revenue: 18596, unsub: 1.24, flag: '—' },
+  { name: 'Price Drop Flow — Email #1', sub: '', delivered: 7012, open: 55.9, click: 15.1, conv: 1.98, revenue: 18200, unsub: 0.06, flag: '⭐' },
+  { name: 'Review Flow DE — Email #1', sub: '', delivered: 2131, open: 47.5, click: 2.4, conv: 0.75, revenue: 1639, unsub: 1.46, flag: '⚠️' },
+  { name: 'Shopify & Footer — Email #1', sub: '', delivered: 7358, open: 66.6, click: 2.8, conv: 2.7, revenue: 46342, unsub: 1.05, flag: '⭐' },
+  { name: 'Shopify & Footer — Email #2 How it\'s made', sub: '', delivered: 5520, open: 51.4, click: 0.69, conv: 0.83, revenue: 4651, unsub: 1.59, flag: '⚠️' },
+  { name: 'Sunset Flow — Email #1', sub: '', delivered: 69, open: 15.9, click: 0, conv: 0, revenue: 0, unsub: 0, flag: '⚠️' },
+  { name: 'Win Back (6 Months) — Email #1', sub: '', delivered: 6233, open: 55.6, click: 4.6, conv: 0.96, revenue: 14175, unsub: 0.34, flag: '—' },
+];
+
+function renderFlows() {
+  const min300 = document.getElementById('filterMin300').checked;
+  const sort   = document.getElementById('flowSort').value;
+
+  let data = [...FLOWS_DATA];
+
+  // Filter
+  if (min300) data = data.filter(f => f.delivered >= 300);
+
+  // Sort
+  const sortMap = {
+    delivered_desc: (a,b) => b.delivered - a.delivered,
+    delivered_asc:  (a,b) => a.delivered - b.delivered,
+    open_asc:       (a,b) => a.open - b.open,
+    open_desc:      (a,b) => b.open - a.open,
+    click_asc:      (a,b) => a.click - b.click,
+    click_desc:     (a,b) => b.click - a.click,
+    conv_asc:       (a,b) => a.conv - b.conv,
+    conv_desc:      (a,b) => b.conv - a.conv,
+    revenue_desc:   (a,b) => b.revenue - a.revenue,
+    revenue_asc:    (a,b) => a.revenue - b.revenue,
+    unsub_desc:     (a,b) => b.unsub - a.unsub,
+    unsub_asc:      (a,b) => a.unsub - b.unsub,
+  };
+  if (sortMap[sort]) data.sort(sortMap[sort]);
+
+  // Update count
+  document.getElementById('flowCount').textContent = data.length + ' flow' + (data.length !== 1 ? 's' : '') + ' shown';
+
+  // Render rows
+  const tbody = document.getElementById('flowsTbody');
+  tbody.innerHTML = data.map(f => {
+    const isWarn = f.flag === '⚠️';
+    const isTop  = f.flag === '⭐';
+    const rowClass = isWarn ? 'warn' : isTop ? 'top' : '';
+    const nameHtml = f.sub
+      ? `<strong>${f.name}</strong><br><span class="muted">${f.sub}</span>`
+      : f.name;
+    const convBold = f.conv >= 5 ? `<strong>${f.conv}%</strong>` : `${f.conv}%`;
+    const revBold  = f.revenue >= 20000 ? `<strong>€${f.revenue.toLocaleString()}</strong>` : `€${f.revenue.toLocaleString()}`;
+    const unsubBold = f.unsub >= 1.5 ? `<strong>${f.unsub}%</strong>` : `${f.unsub}%`;
+    return `<tr class="${rowClass}">
+      <td>${nameHtml}</td>
+      <td><span class="badge badge-live">Live</span></td>
+      <td class="r">${f.delivered.toLocaleString()}</td>
+      <td class="r">${f.open}%</td>
+      <td class="r">${f.click}%</td>
+      <td class="r">${convBold}</td>
+      <td class="r">${revBold}</td>
+      <td class="r">${unsubBold}</td>
+      <td class="c">${f.flag}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Init on load
+document.addEventListener('DOMContentLoaded', renderFlows);
+
+</script>
+
+</body>
+</html>
